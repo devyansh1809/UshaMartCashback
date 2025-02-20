@@ -60,11 +60,12 @@ export default function AdminPage() {
         cashbackAmount: cashbackAmounts[purchaseId]
       });
       const data = await res.json();
-      setCoupons([...coupons, {purchaseId, couponCode: data.couponCode}]); // Update coupons state
+      setCoupons([...coupons, {purchaseId, couponCode: data.couponCode}]);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       toast({
         title: "Purchase verified",
         description: "Cashback coupon has been generated successfully.",
@@ -243,7 +244,30 @@ export default function AdminPage() {
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium">Cashback Amount:</span>
-                                  <span className="font-mono">₹{cashbackAmounts[purchase.id]?.toFixed(2)}</span>
+                                  <Input
+                                    type="number"
+                                    value={cashbackAmounts[purchase.id] || 0}
+                                    onChange={(e) => {
+                                      const newAmount = Number(e.target.value);
+                                      setCashbackAmounts({
+                                        ...cashbackAmounts,
+                                        [purchase.id]: newAmount,
+                                      });
+                                    }}
+                                    className="w-24"
+                                    step="0.01"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                    disabled={verifyPurchaseMutation.isPending}
+                                    className="bg-primary hover:bg-primary/90"
+                                  >
+                                    {verifyPurchaseMutation.isPending && (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    )}
+                                    Update Cashback
+                                  </Button>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium">Voucher Code:</span>
