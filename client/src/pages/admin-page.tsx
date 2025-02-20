@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -18,9 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Users } from "lucide-react";
 import { Redirect } from "wouter";
+import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminPage() {
   const { user, logoutMutation } = useAuth();
+  const { toast } = useToast();
 
   const { data: users, isLoading: loadingUsers } = useQuery({
     queryKey: ["/api/users"],
@@ -28,6 +32,31 @@ export default function AdminPage() {
 
   const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ["/api/stats"],
+  });
+
+  const { data: purchases, isLoading: loadingPurchases } = useQuery({
+    queryKey: ["/api/purchases"],
+  });
+
+  const verifyPurchaseMutation = useMutation({
+    mutationFn: async (purchaseId: number) => {
+      const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      toast({
+        title: "Purchase verified",
+        description: "Cashback coupon has been generated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (!user?.isAdmin) {
@@ -68,6 +97,73 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Purchases</CardTitle>
+              <CardDescription>Verify purchases to generate cashback coupons.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPurchases ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bill Number</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {purchases?.map((purchase) => {
+                      const customer = users?.find(u => u.id === purchase.userId);
+                      return (
+                        <TableRow key={purchase.id}>
+                          <TableCell>{purchase.billNumber}</TableCell>
+                          <TableCell>{customer?.name}</TableCell>
+                          <TableCell>₹{purchase.billAmount}</TableCell>
+                          <TableCell>
+                            {format(new Date(purchase.purchaseDate), "PPP")}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`px-2 py-1 text-xs rounded ${
+                                purchase.verificationStatus === "verified"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
+                            >
+                              {purchase.verificationStatus}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {purchase.verificationStatus === "pending" && (
+                              <Button
+                                size="sm"
+                                onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                disabled={verifyPurchaseMutation.isPending}
+                              >
+                                {verifyPurchaseMutation.isPending && (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                )}
+                                Verify
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
