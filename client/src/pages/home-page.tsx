@@ -51,10 +51,21 @@ export default function HomePage() {
 
   const { data: purchases } = useQuery({
     queryKey: ["/api/purchases"],
+    select: (data) => {
+      // Ensure we only show purchases for the current user
+      return data.filter((purchase) => purchase.userId === user?.id);
+    },
   });
 
   const { data: coupons } = useQuery({
     queryKey: ["/api/coupons"],
+    select: (data) => {
+      // Ensure we only show coupons for the current user's purchases
+      return data.filter((coupon) => {
+        const purchase = purchases?.find((p) => p.id === coupon.purchaseId);
+        return purchase?.userId === user?.id;
+      });
+    },
   });
 
   return (
