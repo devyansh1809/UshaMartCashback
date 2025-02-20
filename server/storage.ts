@@ -14,7 +14,9 @@ async function hashPassword(password: string) {
 }
 
 function generateCouponCode(): string {
-  return randomBytes(8).toString('hex').toUpperCase();
+  // Generate an 8-byte (16 character) hexadecimal code
+  const bytes = randomBytes(8);
+  return bytes.toString('hex').toUpperCase();
 }
 
 export interface IStorage {
@@ -107,7 +109,9 @@ export class MemStorage implements IStorage {
     const newPurchase: Purchase = {
       id,
       userId,
-      ...purchase,
+      billNumber: purchase.billNumber,
+      billAmount: purchase.billAmount.toString(), // Convert to string for storage
+      purchaseDate: purchase.purchaseDate,
       verificationStatus: 'pending',
       createdAt: new Date(),
     };
@@ -153,6 +157,7 @@ export class MemStorage implements IStorage {
       throw new Error("Purchase not found");
     }
 
+    // Check if a coupon already exists for this purchase
     const existingCoupon = Array.from(this.coupons.values()).find(
       (coupon) => coupon.purchaseId === purchaseId
     );
@@ -165,7 +170,7 @@ export class MemStorage implements IStorage {
       id,
       purchaseId,
       couponCode: generateCouponCode(),
-      amount,
+      amount: amount.toString(), // Convert to string for storage
       status: 'active',
       createdAt: new Date(),
     };
@@ -175,12 +180,16 @@ export class MemStorage implements IStorage {
   }
 
   async getCashbackCouponsByUser(userId: number): Promise<CashbackCoupon[]> {
+    // Get all purchases for this user that are verified
     const userPurchases = await this.getUserPurchases(userId);
-    const purchaseIds = userPurchases.map(p => p.id);
+    const verifiedPurchaseIds = userPurchases
+      .filter(p => p.verificationStatus === 'verified')
+      .map(p => p.id);
 
-    return Array.from(this.coupons.values()).filter(
-      (coupon) => purchaseIds.includes(coupon.purchaseId)
-    );
+    // Return only coupons for verified purchases
+    return Array.from(this.coupons.values())
+      .filter(coupon => verifiedPurchaseIds.includes(coupon.purchaseId))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort by newest first
   }
 }
 
