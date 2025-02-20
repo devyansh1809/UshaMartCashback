@@ -24,11 +24,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 
-
 export default function AdminPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
+  const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]); // Added state for coupons
 
   const { data: users, isLoading: loadingUsers } = useQuery({
     queryKey: ["/api/users"],
@@ -50,12 +50,18 @@ export default function AdminPage() {
     },
   });
 
+  const { data: fetchedCoupons } = useQuery({ // Added query for coupons
+    queryKey: ["/api/coupons"],
+  });
+
   const verifyPurchaseMutation = useMutation({
     mutationFn: async (purchaseId: number) => {
       const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`, {
         cashbackAmount: cashbackAmounts[purchaseId]
       });
-      return res.json();
+      const data = await res.json();
+      setCoupons([...coupons, {purchaseId, couponCode: data.couponCode}]); // Update coupons state
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
@@ -84,6 +90,14 @@ export default function AdminPage() {
       setCashbackAmounts(newCashbackAmounts);
     }
   }, [purchases]);
+
+  useEffect(() => {
+    // Update the coupons state when fetchedCoupons changes
+    if (fetchedCoupons) {
+      setCoupons(fetchedCoupons);
+    }
+  }, [fetchedCoupons]);
+
 
   if (!user?.isAdmin) {
     return <Redirect to="/" />;
@@ -204,32 +218,40 @@ export default function AdminPage() {
                           </TableCell>
                           <TableCell>
                             {isPending && (
-                              <>
-                                <Input
-                                  type="number"
-                                  value={cashbackAmounts[purchase.id] || 0}
-                                  onChange={(e) => {
-                                    setCashbackAmounts({
-                                      ...cashbackAmounts,
-                                      [purchase.id]: Number(e.target.value),
-                                    });
-                                  }}
-                                  className="w-24"
-                                  step="0.01"
-                                />
-                                <span className="text-sm text-muted-foreground">₹</span>
+                              <div className="flex items-center gap-2">
                                 <Button
                                   size="sm"
-                                  onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                  onClick={() => {
+                                    const calculatedAmount = Number(purchase.billAmount) * 0.04;
+                                    setCashbackAmounts({
+                                      ...cashbackAmounts,
+                                      [purchase.id]: calculatedAmount,
+                                    });
+                                    verifyPurchaseMutation.mutate(purchase.id);
+                                  }}
                                   disabled={verifyPurchaseMutation.isPending}
-                                  className="bg-green-600 hover:bg-green-700 ml-2"
+                                  className="bg-green-600 hover:bg-green-700"
                                 >
                                   {verifyPurchaseMutation.isPending && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                   )}
-                                  Send Coupon
+                                  Verify Purchase
                                 </Button>
-                              </>
+                              </div>
+                            )}
+                            {!isPending && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Cashback Amount:</span>
+                                  <span className="font-mono">₹{cashbackAmounts[purchase.id]?.toFixed(2)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Voucher Code:</span>
+                                  <span className="font-mono text-primary">{
+                                    coupons?.find(c => c.purchaseId === purchase.id)?.couponCode
+                                  }</span>
+                                </div>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
