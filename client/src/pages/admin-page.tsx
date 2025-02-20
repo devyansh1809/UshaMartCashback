@@ -21,10 +21,14 @@ import { Redirect } from "wouter";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+
 
 export default function AdminPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
 
   const { data: users, isLoading: loadingUsers } = useQuery({
     queryKey: ["/api/users"],
@@ -37,7 +41,6 @@ export default function AdminPage() {
   const { data: purchases, isLoading: loadingPurchases } = useQuery({
     queryKey: ["/api/purchases"],
     select: (data) => {
-      // Sort purchases to show pending ones first, then by date
       return [...data].sort((a, b) => {
         if (a.verificationStatus === b.verificationStatus) {
           return new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime();
@@ -49,7 +52,9 @@ export default function AdminPage() {
 
   const verifyPurchaseMutation = useMutation({
     mutationFn: async (purchaseId: number) => {
-      const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`);
+      const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`, {
+        cashbackAmount: cashbackAmounts[purchaseId]
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -68,11 +73,22 @@ export default function AdminPage() {
     },
   });
 
+  useEffect(() => {
+    if (purchases) {
+      const newCashbackAmounts = { ...cashbackAmounts };
+      purchases.forEach((purchase) => {
+        if (!newCashbackAmounts[purchase.id]) {
+          newCashbackAmounts[purchase.id] = Number(purchase.billAmount) * 0.04;
+        }
+      });
+      setCashbackAmounts(newCashbackAmounts);
+    }
+  }, [purchases]);
+
   if (!user?.isAdmin) {
     return <Redirect to="/" />;
   }
 
-  // Count pending verifications
   const pendingCount = purchases?.filter(p => p.verificationStatus === "pending").length || 0;
 
   return (
@@ -148,7 +164,7 @@ export default function AdminPage() {
                       const customer = users?.find(u => u.id === purchase.userId);
                       const isPending = purchase.verificationStatus === "pending";
                       return (
-                        <TableRow 
+                        <TableRow
                           key={purchase.id}
                           className={isPending ? "bg-orange-50" : ""}
                         >
@@ -188,17 +204,32 @@ export default function AdminPage() {
                           </TableCell>
                           <TableCell>
                             {isPending && (
-                              <Button
-                                size="sm"
-                                onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
-                                disabled={verifyPurchaseMutation.isPending}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                {verifyPurchaseMutation.isPending && (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                )}
-                                Verify
-                              </Button>
+                              <>
+                                <Input
+                                  type="number"
+                                  value={cashbackAmounts[purchase.id] || 0}
+                                  onChange={(e) => {
+                                    setCashbackAmounts({
+                                      ...cashbackAmounts,
+                                      [purchase.id]: Number(e.target.value),
+                                    });
+                                  }}
+                                  className="w-24"
+                                  step="0.01"
+                                />
+                                <span className="text-sm text-muted-foreground">₹</span>
+                                <Button
+                                  size="sm"
+                                  onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                  disabled={verifyPurchaseMutation.isPending}
+                                  className="bg-green-600 hover:bg-green-700 ml-2"
+                                >
+                                  {verifyPurchaseMutation.isPending && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  )}
+                                  Send Coupon
+                                </Button>
+                              </>
                             )}
                           </TableCell>
                         </TableRow>

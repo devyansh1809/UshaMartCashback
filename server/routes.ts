@@ -70,8 +70,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const purchase = await storage.verifyPurchase(parseInt(req.params.id));
 
-      // Calculate cashback (10% of bill amount for this example)
-      const cashbackAmount = Number(purchase.billAmount) * 0.1;
+      // Use the provided cashback amount from the request, or calculate default (4%)
+      const cashbackAmount = req.body.cashbackAmount || Number(purchase.billAmount) * 0.04;
       const coupon = await storage.createCashbackCoupon(purchase.id, cashbackAmount);
 
       res.json(coupon);
