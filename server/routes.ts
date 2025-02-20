@@ -47,8 +47,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).send("Authentication required");
     }
 
-    const purchases = await storage.getUserPurchases(req.user.id);
-    res.json(purchases);
+    try {
+      let purchases;
+      if (req.user.isAdmin) {
+        // Admin sees all purchases
+        purchases = await storage.getAllPurchases();
+      } else {
+        // Regular users only see their own purchases
+        purchases = await storage.getUserPurchases(req.user.id);
+      }
+      res.json(purchases);
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
   });
 
   app.post("/api/purchases/:id/verify", async (req, res) => {

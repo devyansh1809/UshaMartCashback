@@ -29,6 +29,7 @@ export interface IStorage {
   createPurchase(userId: number, purchase: InsertPurchase): Promise<Purchase>;
   getPurchaseByBillNumber(billNumber: string): Promise<Purchase | undefined>;
   getUserPurchases(userId: number): Promise<Purchase[]>;
+  getAllPurchases(): Promise<Purchase[]>;  // New method for admin
   verifyPurchase(purchaseId: number): Promise<Purchase>;
   createCashbackCoupon(purchaseId: number, amount: number): Promise<CashbackCoupon>;
   getCashbackCouponsByUser(userId: number): Promise<CashbackCoupon[]>;
@@ -125,6 +126,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.purchases.values()).filter(
       (purchase) => purchase.userId === userId
     );
+  }
+
+  async getAllPurchases(): Promise<Purchase[]> {
+    return Array.from(this.purchases.values());
   }
 
   async verifyPurchase(purchaseId: number): Promise<Purchase> {
