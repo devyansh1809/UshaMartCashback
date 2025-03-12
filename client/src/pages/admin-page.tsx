@@ -71,26 +71,14 @@ export default function AdminPage() {
   const verifyPurchaseMutation = useMutation({
     mutationFn: async (purchaseId: number) => {
       const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`, {
-        cashbackAmount: cashbackAmounts[purchaseId]
+        cashbackAmount: cashbackAmounts[purchaseId],
       });
-      const data = await res.json();
-
-      setCoupons(prev => {
-        const existing = prev.findIndex(c => c.purchaseId === purchaseId);
-        if (existing >= 0) {
-          const updated = [...prev];
-          updated[existing] = {purchaseId, couponCode: data.couponCode};
-          return updated;
-        } else {
-          return [...prev, {purchaseId, couponCode: data.couponCode}];
-        }
-      });
-
-      return data;
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
       toast({
         title: "Purchase verified",
         description: "Cashback coupon has been generated successfully.",
@@ -99,6 +87,32 @@ export default function AdminPage() {
     onError: (error: Error) => {
       toast({
         title: "Verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const redeemCouponMutation = useMutation({
+    mutationFn: async (purchaseId: number) => {
+      const res = await apiRequest("POST", `/api/coupons/${purchaseId}/redeem`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
+      toast({
+        title: "Coupon redeemed",
+        description: `Coupon for Bill #${data.billNumber} has been redeemed successfully.`,
+      });
+
+      // Refetch coupons to update the displayed values
+      refetchCoupons();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Redemption failed",
         description: error.message,
         variant: "destructive",
       });
@@ -127,29 +141,29 @@ export default function AdminPage() {
     // Use admin endpoint to get all coupons with purchase data
     const res = await apiRequest("GET", "/api/admin/coupons");
     const data = await res.json();
-    
+
     // Get all coupons from storage to find amounts
     const couponRes = await apiRequest("GET", "/api/coupons");
     let allCoupons = await couponRes.json();
-    
+
     // Fetch all purchases to get the correct data
     const purchaseRes = await apiRequest("GET", "/api/purchases");
     const purchases = await purchaseRes.json();
-    
+
     // Map purchases to coupons based on purchase ID
     const couponMap = {};
     for (const coupon of allCoupons) {
       couponMap[coupon.purchaseId] = coupon;
     }
-    
+
     // Create enhanced data with all necessary info
     const enhancedData = data.map((purchaseWithCoupon) => {
       // Find this purchase in all purchases
       const purchase = purchases.find(p => p.id === purchaseWithCoupon.id);
-      
+
       // Find the coupon for this purchase
       const couponDetail = Object.values(couponMap).find(c => c.purchaseId === purchaseWithCoupon.id);
-      
+
       return {
         purchaseId: purchaseWithCoupon.id,
         couponCode: purchaseWithCoupon.couponCode,
@@ -159,14 +173,14 @@ export default function AdminPage() {
         createdAt: couponDetail?.createdAt || new Date().toISOString()
       };
     });
-    
+
     setAllCoupons(enhancedData);
   }
 
   useEffect(() => {
     refetchCoupons();
   }, []);
-  
+
   // Refresh vouchers when verifying a purchase
   useEffect(() => {
     if (verifyPurchaseMutation.isSuccess) {
@@ -424,32 +438,17 @@ export default function AdminPage() {
                             </div>
 
                             <div className="mt-4 pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={cashbackAmounts[coupon.purchaseId] || 0}
-                                  onChange={(e) => {
-                                    const newAmount = Number(e.target.value);
-                                    setCashbackAmounts({
-                                      ...cashbackAmounts,
-                                      [coupon.purchaseId]: newAmount,
-                                    });
-                                  }}
-                                  className="w-24"
-                                  step="0.01"
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => verifyPurchaseMutation.mutate(coupon.purchaseId)}
-                                  disabled={verifyPurchaseMutation.isPending}
-                                  className="bg-primary hover:bg-primary/90 text-xs"
-                                >
-                                  {verifyPurchaseMutation.isPending &&
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  }
-                                  Update Value
-                                </Button>
-                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => redeemCouponMutation.mutate(coupon.purchaseId)}
+                                disabled={redeemCouponMutation.isPending}
+                                className="bg-primary hover:bg-primary/90 text-xs w-full"
+                              >
+                                {redeemCouponMutation.isPending &&
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                }
+                                Redeem Coupon
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>
