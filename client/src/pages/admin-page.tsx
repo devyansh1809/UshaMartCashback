@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
   const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]);
   const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
+  const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
 
 
   const { data: users, isLoading: loadingUsers } = useQuery({
@@ -71,26 +72,14 @@ export default function AdminPage() {
   const verifyPurchaseMutation = useMutation({
     mutationFn: async (purchaseId: number) => {
       const res = await apiRequest("POST", `/api/purchases/${purchaseId}/verify`, {
-        cashbackAmount: cashbackAmounts[purchaseId]
+        cashbackAmount: cashbackAmounts[purchaseId],
       });
-      const data = await res.json();
-
-      setCoupons(prev => {
-        const existing = prev.findIndex(c => c.purchaseId === purchaseId);
-        if (existing >= 0) {
-          const updated = [...prev];
-          updated[existing] = {purchaseId, couponCode: data.couponCode};
-          return updated;
-        } else {
-          return [...prev, {purchaseId, couponCode: data.couponCode}];
-        }
-      });
-
-      return data;
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
       toast({
         title: "Purchase verified",
         description: "Cashback coupon has been generated successfully.",
@@ -99,6 +88,32 @@ export default function AdminPage() {
     onError: (error: Error) => {
       toast({
         title: "Verification failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const redeemCouponMutation = useMutation({
+    mutationFn: async (purchaseId: number) => {
+      const res = await apiRequest("POST", `/api/coupons/${purchaseId}/redeem`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
+      toast({
+        title: "Coupon redeemed",
+        description: `Coupon for Bill #${data.billNumber} has been redeemed successfully.`,
+      });
+
+      // Refetch coupons to update the displayed values
+      refetchCoupons();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Redemption failed",
         description: error.message,
         variant: "destructive",
       });
@@ -124,14 +139,61 @@ export default function AdminPage() {
   }, [fetchedCoupons]);
 
   const refetchCoupons = async () => {
-    const res = await apiRequest("GET", "/api/coupons");
+    // Use admin endpoint to get all coupons with purchase data
+    const res = await apiRequest("GET", "/api/admin/coupons");
     const data = await res.json();
-    setAllCoupons(data);
+
+    // Get all coupons from storage to find amounts
+    const couponRes = await apiRequest("GET", "/api/coupons");
+    let allCoupons = await couponRes.json();
+
+    // Fetch all purchases to get the correct data
+    const purchaseRes = await apiRequest("GET", "/api/purchases");
+    const purchases = await purchaseRes.json();
+
+    // Map purchases to coupons based on purchase ID
+    const couponMap = {};
+    for (const coupon of allCoupons) {
+      couponMap[coupon.purchaseId] = coupon;
+    }
+
+    // Create enhanced data with all necessary info
+    const enhancedData = data.map((purchaseWithCoupon) => {
+      // Find this purchase in all purchases
+      const purchase = purchases.find(p => p.id === purchaseWithCoupon.id);
+
+      // Find the coupon for this purchase
+      const couponDetail = Object.values(couponMap).find(c => c.purchaseId === purchaseWithCoupon.id);
+
+      return {
+        purchaseId: purchaseWithCoupon.id,
+        couponCode: purchaseWithCoupon.couponCode,
+        billNumber: purchaseWithCoupon.billNumber || purchase?.billNumber,
+        billAmount: purchaseWithCoupon.billAmount || purchase?.billAmount,
+        amount: couponDetail?.amount || cashbackAmounts[purchaseWithCoupon.id] || "0", // Use the coupon amount or cashback amount
+        createdAt: couponDetail?.createdAt || new Date().toISOString(),
+        status: couponDetail?.status || 'active'
+      };
+    });
+
+    // Filter active vs redeemed coupons
+    const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0" && parseInt(c.amount) > 0);
+    const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0" || parseInt(c.amount) === 0);
+    
+    setAllCoupons(active);
+    setRedeemedCoupons(redeemed);
   }
 
   useEffect(() => {
     refetchCoupons();
   }, []);
+
+  // Refresh vouchers when verifying a purchase
+  useEffect(() => {
+    if (verifyPurchaseMutation.isSuccess) {
+      refetchCoupons();
+    }
+  }, [verifyPurchaseMutation.isSuccess]);
 
 
   if (!user?.isAdmin) {
@@ -186,9 +248,10 @@ export default function AdminPage() {
           </div>
 
           <Tabs defaultValue="purchases" className="mt-6">
-            <TabsList className="mb-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="purchases">Customer Purchases</TabsTrigger>
               <TabsTrigger value="vouchers">Voucher Codes</TabsTrigger>
+              <TabsTrigger value="redeemed">Redeemed Coupons</TabsTrigger>
             </TabsList>
 
             <TabsContent value="purchases">
@@ -348,6 +411,16 @@ export default function AdminPage() {
                                 {coupon.couponCode}
                               </span>
                             </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Bill Number:</span>
+                                <span>{coupon.billNumber}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-primary">Voucher Value:</span>
+                                <span className="text-primary">₹{coupon.amount}</span>
+                              </div>
+                            </div>
 
                             <div className="space-y-2 mt-3">
                               <div className="flex justify-between text-sm">
@@ -373,32 +446,17 @@ export default function AdminPage() {
                             </div>
 
                             <div className="mt-4 pt-2 border-t">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  value={cashbackAmounts[coupon.purchaseId] || 0}
-                                  onChange={(e) => {
-                                    const newAmount = Number(e.target.value);
-                                    setCashbackAmounts({
-                                      ...cashbackAmounts,
-                                      [coupon.purchaseId]: newAmount,
-                                    });
-                                  }}
-                                  className="w-24"
-                                  step="0.01"
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => verifyPurchaseMutation.mutate(coupon.purchaseId)}
-                                  disabled={verifyPurchaseMutation.isPending}
-                                  className="bg-primary hover:bg-primary/90 text-xs"
-                                >
-                                  {verifyPurchaseMutation.isPending &&
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  }
-                                  Update Value
-                                </Button>
-                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => redeemCouponMutation.mutate(coupon.purchaseId)}
+                                disabled={redeemCouponMutation.isPending}
+                                className="bg-primary hover:bg-primary/90 text-xs w-full"
+                              >
+                                {redeemCouponMutation.isPending &&
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                }
+                                Redeem Coupon
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>
@@ -408,6 +466,76 @@ export default function AdminPage() {
                     {!allCoupons?.length && (
                       <div className="col-span-full text-center py-8 text-muted-foreground">
                         No voucher codes generated yet
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="redeemed">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div>Redeemed Coupons</div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetchCoupons()}
+                      className="flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Refresh
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {redeemedCoupons?.map((coupon) => {
+                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                      const user = users?.find(u => u.id === purchase?.userId);
+
+                      return (
+                        <Card key={coupon.purchaseId} className="bg-muted/30 border-dashed">
+                          <CardContent className="pt-6">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-mono text-lg font-bold">
+                                  {coupon.couponCode}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Bill: {coupon.billNumber}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="bg-rose-100 text-rose-600 border-rose-200">
+                                Redeemed
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2 mt-4">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Amount:</span>
+                                <span className="font-medium">₹{coupon.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Bill Amount:</span>
+                                <span className="font-medium">₹{coupon.billAmount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Customer:</span>
+                                <span className="font-medium">{user?.name || "Unknown"}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Generated:</span>
+                                <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                    {!redeemedCoupons?.length && (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">
+                        No redeemed coupons yet
                       </div>
                     )}
                   </div>

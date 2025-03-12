@@ -150,6 +150,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(coupons);
   });
 
+  // Add endpoint to redeem a coupon
+  app.post("/api/coupons/:purchaseId/redeem", async (req, res) => {
+    if (!req.user?.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const purchaseId = parseInt(req.params.purchaseId);
+      
+      // Find the purchase
+      const purchase = await storage.getPurchaseById(purchaseId);
+      if (!purchase) {
+        return res.status(404).json({ error: "Purchase not found" });
+      }
+      
+      // Find the coupon for this purchase
+      const coupon = Array.from(storage.coupons.values()).find(
+        c => c.purchaseId === purchaseId
+      );
+      
+      if (!coupon) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+      
+      // Set the coupon amount to 0 (redeem it)
+      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, 0);
+      
+      // Mark the coupon as redeemed in status
+      redeemedCoupon.status = 'redeemed';
+      
+      // Add notification for the user
+      const user = storage.users.get(purchase.userId);
+      if (user) {
+        // If you have a notifications system, you would add to it here
+        // For now, just ensure the status is updated
+        storage.coupons.set(coupon.id, redeemedCoupon);
+      }
+      
+      // Return the redeemed coupon with purchase info
+      res.json({
+        ...redeemedCoupon,
+        billNumber: purchase.billNumber
+      });
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

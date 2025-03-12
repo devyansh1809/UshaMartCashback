@@ -205,11 +205,18 @@ export default function HomePage() {
                   {coupons?.map((coupon) => (
                     <div
                       key={coupon.id}
-                      className="p-4 border rounded bg-primary/5"
+                      className={`p-4 border rounded ${coupon.status === 'redeemed' ? 'bg-rose-100/70' : 'bg-primary/5'}`}
                     >
-                      <p className="font-mono text-lg font-bold">
-                        {coupon.couponCode}
-                      </p>
+                      <div className="flex justify-between items-center">
+                        <p className="font-mono text-lg font-bold">
+                          {coupon.couponCode}
+                        </p>
+                        {coupon.status === 'redeemed' && (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-rose-500 text-white">
+                            Redeemed
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground mt-2">
                         Amount: ₹{coupon.amount}
                       </p>
@@ -217,6 +224,11 @@ export default function HomePage() {
                         Generated:{" "}
                         {format(new Date(coupon.createdAt), "PPP")}
                       </p>
+                      {coupon.status === 'redeemed' && (
+                        <p className="text-xs text-rose-600 font-medium mt-1">
+                          This coupon has been redeemed and cannot be used again.
+                        </p>
+                      )}
                     </div>
                   ))}
                   {!coupons?.length && (

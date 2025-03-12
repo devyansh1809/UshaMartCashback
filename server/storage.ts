@@ -33,6 +33,7 @@ export interface IStorage {
   getUserPurchases(userId: number): Promise<Purchase[]>;
   getAllPurchases(): Promise<Purchase[]>;  // New method for admin
   verifyPurchase(purchaseId: number): Promise<Purchase>;
+  getPurchaseById(purchaseId: number): Promise<Purchase | undefined>; // Added method
   createCashbackCoupon(purchaseId: number, amount: number): Promise<CashbackCoupon>;
   getCashbackCouponsByUser(userId: number): Promise<CashbackCoupon[]>;
 }
@@ -136,19 +137,19 @@ export class MemStorage implements IStorage {
     return Array.from(this.purchases.values());
   }
 
+  async getPurchaseById(purchaseId: number): Promise<Purchase | undefined> {
+    return this.purchases.get(purchaseId);
+  }
+
   async verifyPurchase(purchaseId: number): Promise<Purchase> {
     const purchase = this.purchases.get(purchaseId);
     if (!purchase) {
       throw new Error("Purchase not found");
     }
 
-    const verifiedPurchase = {
-      ...purchase,
-      verificationStatus: 'verified'
-    };
-
-    this.purchases.set(purchaseId, verifiedPurchase);
-    return verifiedPurchase;
+    const updatedPurchase = { ...purchase, verificationStatus: 'verified' as const };
+    this.purchases.set(purchaseId, updatedPurchase);
+    return updatedPurchase;
   }
 
   async createCashbackCoupon(purchaseId: number, amount: number): Promise<CashbackCoupon> {
@@ -179,19 +180,19 @@ export class MemStorage implements IStorage {
     this.coupons.set(id, coupon);
     return coupon;
   }
-  
+
   async updateCashbackCouponAmount(couponId: number, newAmount: number): Promise<CashbackCoupon> {
     const coupon = this.coupons.get(couponId);
     if (!coupon) {
       throw new Error("Coupon not found");
     }
-    
+
     // Update only the amount, preserve the same coupon code
     const updatedCoupon: CashbackCoupon = {
       ...coupon,
       amount: newAmount.toString(), // Convert to string for storage
     };
-    
+
     this.coupons.set(couponId, updatedCoupon);
     return updatedCoupon;
   }
