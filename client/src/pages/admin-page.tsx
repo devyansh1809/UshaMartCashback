@@ -16,19 +16,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Users, CheckCircle, Clock } from "lucide-react";
+import { Loader2, Users, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { Redirect } from "wouter";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+
 
 export default function AdminPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
-  const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]); // Added state for coupons
+  const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]);
+  const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
+
 
   const { data: users, isLoading: loadingUsers } = useQuery({
     queryKey: ["/api/users"],
@@ -53,14 +58,13 @@ export default function AdminPage() {
   const { data: fetchedCoupons } = useQuery({
     queryKey: ["/api/purchases"],
     select: (data) => {
-      // Extract coupon data from verified purchases that have coupon codes
       return data
         .filter(p => p.verificationStatus === "verified")
         .map(p => ({
           purchaseId: p.id,
           couponCode: p.couponCode
         }))
-        .filter(c => c.couponCode); // Only keep entries with coupon codes
+        .filter(c => c.couponCode);
     },
   });
 
@@ -70,21 +74,18 @@ export default function AdminPage() {
         cashbackAmount: cashbackAmounts[purchaseId]
       });
       const data = await res.json();
-      
-      // Update or add the coupon in the local state
+
       setCoupons(prev => {
         const existing = prev.findIndex(c => c.purchaseId === purchaseId);
         if (existing >= 0) {
-          // Update existing coupon
           const updated = [...prev];
           updated[existing] = {purchaseId, couponCode: data.couponCode};
           return updated;
         } else {
-          // Add new coupon
           return [...prev, {purchaseId, couponCode: data.couponCode}];
         }
       });
-      
+
       return data;
     },
     onSuccess: () => {
@@ -117,11 +118,20 @@ export default function AdminPage() {
   }, [purchases]);
 
   useEffect(() => {
-    // Update the coupons state when fetchedCoupons changes
     if (fetchedCoupons) {
       setCoupons(fetchedCoupons);
     }
   }, [fetchedCoupons]);
+
+  const refetchCoupons = async () => {
+    const res = await apiRequest("GET", "/api/coupons");
+    const data = await res.json();
+    setAllCoupons(data);
+  }
+
+  useEffect(() => {
+    refetchCoupons();
+  }, []);
 
 
   if (!user?.isAdmin) {
@@ -175,148 +185,236 @@ export default function AdminPage() {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Purchase Verifications</CardTitle>
-              <CardDescription>Review and verify customer purchase submissions. Pending verifications are shown first.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingPurchases ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bill Number</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Purchase Date</TableHead>
-                      <TableHead>Submission Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {purchases?.map((purchase) => {
-                      const customer = users?.find(u => u.id === purchase.userId);
-                      const isPending = purchase.verificationStatus === "pending";
-                      return (
-                        <TableRow
-                          key={purchase.id}
-                          className={isPending ? "bg-orange-50" : ""}
-                        >
-                          <TableCell className="font-medium">{purchase.billNumber}</TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{customer?.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {customer?.phone}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>₹{purchase.billAmount}</TableCell>
-                          <TableCell>
-                            {format(new Date(purchase.purchaseDate), "PPP")}
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(purchase.createdAt), "PPP")}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {isPending ? (
-                                <Clock className="h-4 w-4 text-orange-500" />
-                              ) : (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                              )}
-                              <span
-                                className={`px-2 py-1 text-xs rounded-full ${
-                                  isPending
-                                    ? "bg-orange-100 text-orange-800"
-                                    : "bg-green-100 text-green-800"
-                                }`}
-                              >
-                                {purchase.verificationStatus}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {isPending && (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    const calculatedAmount = Number(purchase.billAmount) * 0.04;
-                                    setCashbackAmounts({
-                                      ...cashbackAmounts,
-                                      [purchase.id]: calculatedAmount,
-                                    });
-                                    verifyPurchaseMutation.mutate(purchase.id);
-                                  }}
-                                  disabled={verifyPurchaseMutation.isPending}
-                                  className="bg-green-600 hover:bg-green-700"
+          <Tabs defaultValue="purchases" className="mt-6">
+            <TabsList className="mb-4">
+              <TabsTrigger value="purchases">Customer Purchases</TabsTrigger>
+              <TabsTrigger value="vouchers">Voucher Codes</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="purchases">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div>
+                      Customer Purchases
+                      {pendingCount > 0 && (
+                        <Badge variant="outline" className="ml-2 bg-yellow-50 text-yellow-800">
+                          {pendingCount} pending
+                        </Badge>
+                      )}
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingPurchases ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bill #</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {purchases?.map((purchase) => {
+                          const user = users?.find((u) => u.id === purchase.userId);
+                          const isPending =
+                            purchase.verificationStatus === "pending";
+                          return (
+                            <TableRow key={purchase.id}>
+                              <TableCell className="font-medium">
+                                {purchase.billNumber}
+                              </TableCell>
+                              <TableCell>{user?.name}</TableCell>
+                              <TableCell>₹{purchase.billAmount}</TableCell>
+                              <TableCell>
+                                {format(new Date(purchase.purchaseDate), "PPP")}
+                              </TableCell>
+                              <TableCell>
+                                <span
+                                  className={`px-2 py-1 text-xs rounded ${
+                                    isPending
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-green-100 text-green-800"
+                                  }`}
                                 >
-                                  {verifyPurchaseMutation.isPending && (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  )}
-                                  Verify Purchase
-                                </Button>
-                              </div>
-                            )}
-                            {!isPending && (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">Cashback Amount:</span>
-                                  <Input
-                                    type="number"
-                                    value={cashbackAmounts[purchase.id] || 0}
-                                    onChange={(e) => {
-                                      const newAmount = Number(e.target.value);
-                                      setCashbackAmounts({
-                                        ...cashbackAmounts,
-                                        [purchase.id]: newAmount,
-                                      });
-                                    }}
-                                    className="w-24"
-                                    step="0.01"
-                                  />
+                                  {purchase.verificationStatus}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {isPending && (
                                   <Button
                                     size="sm"
-                                    onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                    onClick={() =>
+                                      verifyPurchaseMutation.mutate(purchase.id)
+                                    }
                                     disabled={verifyPurchaseMutation.isPending}
                                     className="bg-primary hover:bg-primary/90"
                                   >
                                     {verifyPurchaseMutation.isPending && (
                                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     )}
-                                    Update Cashback
+                                    Verify & Generate Cashback
                                   </Button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">Voucher Code:</span>
-                                  <span className="font-mono text-primary">{
-                                    coupons?.find(c => c.purchaseId === purchase.id)?.couponCode
-                                  }</span>
-                                </div>
+                                )}
+                                {!isPending && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium">Cashback Amount:</span>
+                                      <Input
+                                        type="number"
+                                        value={cashbackAmounts[purchase.id] || 0}
+                                        onChange={(e) => {
+                                          const newAmount = Number(e.target.value);
+                                          setCashbackAmounts({
+                                            ...cashbackAmounts,
+                                            [purchase.id]: newAmount,
+                                          });
+                                        }}
+                                        className="w-24"
+                                        step="0.01"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => verifyPurchaseMutation.mutate(purchase.id)}
+                                        disabled={verifyPurchaseMutation.isPending}
+                                        className="bg-primary hover:bg-primary/90"
+                                      >
+                                        {verifyPurchaseMutation.isPending &&
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        }
+                                        Update Cashback
+                                      </Button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium">Voucher Code:</span>
+                                      <span className="font-mono text-primary">{
+                                        coupons?.find(c => c.purchaseId === purchase.id)?.couponCode
+                                      }</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {!purchases?.length && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4">
+                              No purchases to verify
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="vouchers">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div>All Voucher Codes</div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetchCoupons()}
+                      className="flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Refresh
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allCoupons?.map((coupon) => {
+                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                      const user = users?.find(u => u.id === purchase?.userId);
+
+                      return (
+                        <Card key={coupon.couponCode} className="border border-primary/10 bg-primary/5">
+                          <CardContent className="p-4">
+                            <div className="mb-2 text-center py-2 bg-primary/10 rounded">
+                              <span className="block font-mono text-lg font-bold text-primary">
+                                {coupon.couponCode}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 mt-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Bill Number:</span>
+                                <span>{purchase?.billNumber}</span>
                               </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Customer:</span>
+                                <span>{user?.name}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Purchase Amount:</span>
+                                <span>₹{purchase?.billAmount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-primary">Voucher Value:</span>
+                                <span className="text-primary">₹{coupon.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <span>Created:</span>
+                                <span>{format(new Date(coupon.createdAt), "PPP")}</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-2 border-t">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={cashbackAmounts[coupon.purchaseId] || 0}
+                                  onChange={(e) => {
+                                    const newAmount = Number(e.target.value);
+                                    setCashbackAmounts({
+                                      ...cashbackAmounts,
+                                      [coupon.purchaseId]: newAmount,
+                                    });
+                                  }}
+                                  className="w-24"
+                                  step="0.01"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => verifyPurchaseMutation.mutate(coupon.purchaseId)}
+                                  disabled={verifyPurchaseMutation.isPending}
+                                  className="bg-primary hover:bg-primary/90 text-xs"
+                                >
+                                  {verifyPurchaseMutation.isPending &&
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  }
+                                  Update Value
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
-                    {!purchases?.length && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4">
-                          No purchases to verify
-                        </TableCell>
-                      </TableRow>
+
+                    {!allCoupons?.length && (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">
+                        No voucher codes generated yet
+                      </div>
                     )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <Card>
             <CardHeader>
