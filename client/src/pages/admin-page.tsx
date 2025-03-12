@@ -124,14 +124,40 @@ export default function AdminPage() {
   }, [fetchedCoupons]);
 
   const refetchCoupons = async () => {
-    const res = await apiRequest("GET", "/api/coupons");
+    // Use admin endpoint to get all coupons with purchase data
+    const res = await apiRequest("GET", "/api/admin/coupons");
     const data = await res.json();
-    setAllCoupons(data);
+    
+    // Get detailed coupon info from the coupons map
+    const enhancedData = await Promise.all(data.map(async (purchaseWithCoupon) => {
+      // Find the corresponding coupon with the amount
+      const couponRes = await apiRequest("GET", "/api/coupons");
+      const allCoupons = await couponRes.json();
+      const couponDetails = allCoupons.find(c => c.purchaseId === purchaseWithCoupon.id);
+      
+      return {
+        purchaseId: purchaseWithCoupon.id,
+        couponCode: purchaseWithCoupon.couponCode,
+        billNumber: purchaseWithCoupon.billNumber,
+        billAmount: purchaseWithCoupon.billAmount,
+        amount: couponDetails?.amount || "0", // Use the coupon amount
+        createdAt: couponDetails?.createdAt || new Date().toISOString()
+      };
+    }));
+    
+    setAllCoupons(enhancedData);
   }
 
   useEffect(() => {
     refetchCoupons();
   }, []);
+  
+  // Refresh vouchers when verifying a purchase
+  useEffect(() => {
+    if (verifyPurchaseMutation.isSuccess) {
+      refetchCoupons();
+    }
+  }, [verifyPurchaseMutation.isSuccess]);
 
 
   if (!user?.isAdmin) {
@@ -347,6 +373,16 @@ export default function AdminPage() {
                               <span className="block font-mono text-lg font-bold text-primary">
                                 {coupon.couponCode}
                               </span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Bill Number:</span>
+                                <span>{coupon.billNumber}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-primary">Voucher Value:</span>
+                                <span className="text-primary">₹{coupon.amount}</span>
+                              </div>
                             </div>
 
                             <div className="space-y-2 mt-3">
