@@ -40,7 +40,7 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private purchases: Map<number, Purchase>;
-  private coupons: Map<number, CashbackCoupon>;
+  coupons: Map<number, CashbackCoupon>; // Changed to public for direct access
   currentId: number;
   currentPurchaseId: number;
   currentCouponId: number;

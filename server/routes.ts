@@ -56,7 +56,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Regular users only see their own purchases
         purchases = await storage.getUserPurchases(req.user.id);
       }
-      res.json(purchases);
+      
+      // Enhance purchases with coupon information
+      const enhancedPurchases = purchases.map(purchase => {
+        // Find coupon for this purchase
+        const coupon = Array.from(storage.coupons.values())
+          .find(c => c.purchaseId === purchase.id);
+          
+        if (coupon) {
+          return {
+            ...purchase,
+            couponCode: coupon.couponCode
+          };
+        }
+        return purchase;
+      });
+      
+      res.json(enhancedPurchases);
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
     }
@@ -75,6 +91,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coupon = await storage.createCashbackCoupon(purchase.id, cashbackAmount);
 
       res.json(coupon);
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  // Add a new endpoint to get all coupons (for admin)
+  app.get("/api/admin/coupons", async (req, res) => {
+    if (!req.user?.isAdmin) {
+      return res.status(403).send("Admin access required");
+    }
+
+    try {
+      const purchases = await storage.getAllPurchases();
+      const verifiedPurchases = purchases.filter(p => p.verificationStatus === 'verified');
+      
+      // Get coupon information for each verified purchase
+      const result = [];
+      for (const purchase of verifiedPurchases) {
+        const coupons = Array.from(storage.coupons.values())
+          .filter(coupon => coupon.purchaseId === purchase.id);
+          
+        if (coupons.length > 0) {
+          // Add coupon code to purchase object
+          result.push({
+            ...purchase,
+            couponCode: coupons[0].couponCode
+          });
+        }
+      }
+      
+      res.json(result);
     } catch (error) {
       res.status(400).json({ error: (error as Error).message });
     }

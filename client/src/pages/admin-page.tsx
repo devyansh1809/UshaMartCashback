@@ -50,8 +50,18 @@ export default function AdminPage() {
     },
   });
 
-  const { data: fetchedCoupons } = useQuery({ // Added query for coupons
-    queryKey: ["/api/coupons"],
+  const { data: fetchedCoupons } = useQuery({
+    queryKey: ["/api/purchases"],
+    select: (data) => {
+      // Extract coupon data from verified purchases that have coupon codes
+      return data
+        .filter(p => p.verificationStatus === "verified")
+        .map(p => ({
+          purchaseId: p.id,
+          couponCode: p.couponCode
+        }))
+        .filter(c => c.couponCode); // Only keep entries with coupon codes
+    },
   });
 
   const verifyPurchaseMutation = useMutation({
@@ -60,7 +70,7 @@ export default function AdminPage() {
         cashbackAmount: cashbackAmounts[purchaseId]
       });
       const data = await res.json();
-      setCoupons([...coupons, {purchaseId, couponCode: data.couponCode}]);
+      setCoupons(prev => [...prev, {purchaseId, couponCode: data.couponCode}]);
       return data;
     },
     onSuccess: () => {
