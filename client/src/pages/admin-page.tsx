@@ -171,14 +171,16 @@ export default function AdminPage() {
         billNumber: purchaseWithCoupon.billNumber || purchase?.billNumber,
         billAmount: purchaseWithCoupon.billAmount || purchase?.billAmount,
         amount: couponDetail?.amount || cashbackAmounts[purchaseWithCoupon.id] || "0", // Use the coupon amount or cashback amount
-        createdAt: couponDetail?.createdAt || new Date().toISOString()
+        createdAt: couponDetail?.createdAt || new Date().toISOString(),
+        status: couponDetail?.status || 'active'
       };
     });
 
-    setAllCoupons(enhancedData);
-
-    // Separate redeemed coupons
-    const redeemed = enhancedData.filter(c => c.redeemed === true);
+    // Filter active vs redeemed coupons
+    const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0");
+    const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0");
+    
+    setAllCoupons(active);
     setRedeemedCoupons(redeemed);
   }
 
