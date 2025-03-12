@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
   const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]);
   const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
+  const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
 
 
   const { data: users, isLoading: loadingUsers } = useQuery({
@@ -175,6 +176,10 @@ export default function AdminPage() {
     });
 
     setAllCoupons(enhancedData);
+
+    // Separate redeemed coupons
+    const redeemed = enhancedData.filter(c => c.redeemed === true);
+    setRedeemedCoupons(redeemed);
   }
 
   useEffect(() => {
@@ -241,9 +246,10 @@ export default function AdminPage() {
           </div>
 
           <Tabs defaultValue="purchases" className="mt-6">
-            <TabsList className="mb-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="purchases">Customer Purchases</TabsTrigger>
               <TabsTrigger value="vouchers">Voucher Codes</TabsTrigger>
+              <TabsTrigger value="redeemed">Redeemed Coupons</TabsTrigger>
             </TabsList>
 
             <TabsContent value="purchases">
@@ -458,6 +464,76 @@ export default function AdminPage() {
                     {!allCoupons?.length && (
                       <div className="col-span-full text-center py-8 text-muted-foreground">
                         No voucher codes generated yet
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="redeemed">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div>Redeemed Coupons</div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetchCoupons()}
+                      className="flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Refresh
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {redeemedCoupons?.map((coupon) => {
+                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                      const user = users?.find(u => u.id === purchase?.userId);
+
+                      return (
+                        <Card key={coupon.purchaseId} className="bg-muted/30 border-dashed">
+                          <CardContent className="pt-6">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-mono text-lg font-bold">
+                                  {coupon.couponCode}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Bill: {coupon.billNumber}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="bg-rose-100 text-rose-600 border-rose-200">
+                                Redeemed
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2 mt-4">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Amount:</span>
+                                <span className="font-medium">₹{coupon.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Bill Amount:</span>
+                                <span className="font-medium">₹{coupon.billAmount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Customer:</span>
+                                <span className="font-medium">{user?.name || "Unknown"}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Generated:</span>
+                                <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                    {!redeemedCoupons?.length && (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">
+                        No redeemed coupons yet
                       </div>
                     )}
                   </div>
