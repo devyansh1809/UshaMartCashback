@@ -527,6 +527,31 @@ export default function AdminPage() {
                                 <span className="text-muted-foreground">Generated:</span>
                                 <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
                               </div>
+                              
+                              {coupon.status === 'redeemed' ? (
+                                <Button 
+                                  className="w-full mt-4" 
+                                  variant="outline" 
+                                  disabled={true}
+                                >
+                                  Already Redeemed
+                                </Button>
+                              ) : (
+                                <Button 
+                                  className="w-full mt-4" 
+                                  onClick={() => redeemCouponMutation.mutate({ purchaseId: coupon.purchaseId })}
+                                  disabled={redeemCouponMutation.isPending}
+                                >
+                                  {redeemCouponMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Redeeming...
+                                    </>
+                                  ) : (
+                                    "Redeem Coupon"
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
