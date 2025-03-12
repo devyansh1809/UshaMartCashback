@@ -177,8 +177,8 @@ export default function AdminPage() {
     });
 
     // Filter active vs redeemed coupons
-    const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0");
-    const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0");
+    const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0" && parseInt(c.amount) > 0);
+    const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0" || parseInt(c.amount) === 0);
     
     setAllCoupons(active);
     setRedeemedCoupons(redeemed);
