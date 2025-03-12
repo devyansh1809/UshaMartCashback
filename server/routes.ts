@@ -84,11 +84,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const purchase = await storage.verifyPurchase(parseInt(req.params.id));
+      const purchaseId = parseInt(req.params.id);
+      const purchase = await storage.verifyPurchase(purchaseId);
 
       // Use the provided cashback amount from the request, or calculate default (4%)
       const cashbackAmount = req.body.cashbackAmount || Number(purchase.billAmount) * 0.04;
-      const coupon = await storage.createCashbackCoupon(purchase.id, cashbackAmount);
+      
+      // Check if a coupon already exists for this purchase
+      const existingCoupon = Array.from(storage.coupons.values()).find(
+        coupon => coupon.purchaseId === purchaseId
+      );
+      
+      let coupon;
+      if (existingCoupon) {
+        // Update the existing coupon amount
+        coupon = await storage.updateCashbackCouponAmount(existingCoupon.id, cashbackAmount);
+      } else {
+        // Create a new coupon
+        coupon = await storage.createCashbackCoupon(purchase.id, cashbackAmount);
+      }
 
       res.json(coupon);
     } catch (error) {

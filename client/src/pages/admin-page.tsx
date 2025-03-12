@@ -70,7 +70,21 @@ export default function AdminPage() {
         cashbackAmount: cashbackAmounts[purchaseId]
       });
       const data = await res.json();
-      setCoupons(prev => [...prev, {purchaseId, couponCode: data.couponCode}]);
+      
+      // Update or add the coupon in the local state
+      setCoupons(prev => {
+        const existing = prev.findIndex(c => c.purchaseId === purchaseId);
+        if (existing >= 0) {
+          // Update existing coupon
+          const updated = [...prev];
+          updated[existing] = {purchaseId, couponCode: data.couponCode};
+          return updated;
+        } else {
+          // Add new coupon
+          return [...prev, {purchaseId, couponCode: data.couponCode}];
+        }
+      });
+      
       return data;
     },
     onSuccess: () => {

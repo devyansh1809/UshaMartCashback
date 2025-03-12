@@ -162,7 +162,8 @@ export class MemStorage implements IStorage {
       (coupon) => coupon.purchaseId === purchaseId
     );
     if (existingCoupon) {
-      throw new Error("Cashback coupon already exists for this purchase");
+      // Instead of failing, update and return the existing coupon
+      return this.updateCashbackCouponAmount(existingCoupon.id, amount);
     }
 
     const id = this.currentCouponId++;
@@ -177,6 +178,22 @@ export class MemStorage implements IStorage {
 
     this.coupons.set(id, coupon);
     return coupon;
+  }
+  
+  async updateCashbackCouponAmount(couponId: number, newAmount: number): Promise<CashbackCoupon> {
+    const coupon = this.coupons.get(couponId);
+    if (!coupon) {
+      throw new Error("Coupon not found");
+    }
+    
+    // Update only the amount, preserve the same coupon code
+    const updatedCoupon: CashbackCoupon = {
+      ...coupon,
+      amount: newAmount.toString(), // Convert to string for storage
+    };
+    
+    this.coupons.set(couponId, updatedCoupon);
+    return updatedCoupon;
   }
 
   async getCashbackCouponsByUser(userId: number): Promise<CashbackCoupon[]> {
