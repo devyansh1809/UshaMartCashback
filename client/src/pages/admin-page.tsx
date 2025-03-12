@@ -128,22 +128,37 @@ export default function AdminPage() {
     const res = await apiRequest("GET", "/api/admin/coupons");
     const data = await res.json();
     
-    // Get detailed coupon info from the coupons map
-    const enhancedData = await Promise.all(data.map(async (purchaseWithCoupon) => {
-      // Find the corresponding coupon with the amount
-      const couponRes = await apiRequest("GET", "/api/coupons");
-      const allCoupons = await couponRes.json();
-      const couponDetails = allCoupons.find(c => c.purchaseId === purchaseWithCoupon.id);
+    // Get all coupons from storage to find amounts
+    const couponRes = await apiRequest("GET", "/api/coupons");
+    let allCoupons = await couponRes.json();
+    
+    // Fetch all purchases to get the correct data
+    const purchaseRes = await apiRequest("GET", "/api/purchases");
+    const purchases = await purchaseRes.json();
+    
+    // Map purchases to coupons based on purchase ID
+    const couponMap = {};
+    for (const coupon of allCoupons) {
+      couponMap[coupon.purchaseId] = coupon;
+    }
+    
+    // Create enhanced data with all necessary info
+    const enhancedData = data.map((purchaseWithCoupon) => {
+      // Find this purchase in all purchases
+      const purchase = purchases.find(p => p.id === purchaseWithCoupon.id);
+      
+      // Find the coupon for this purchase
+      const couponDetail = Object.values(couponMap).find(c => c.purchaseId === purchaseWithCoupon.id);
       
       return {
         purchaseId: purchaseWithCoupon.id,
         couponCode: purchaseWithCoupon.couponCode,
-        billNumber: purchaseWithCoupon.billNumber,
-        billAmount: purchaseWithCoupon.billAmount,
-        amount: couponDetails?.amount || "0", // Use the coupon amount
-        createdAt: couponDetails?.createdAt || new Date().toISOString()
+        billNumber: purchaseWithCoupon.billNumber || purchase?.billNumber,
+        billAmount: purchaseWithCoupon.billAmount || purchase?.billAmount,
+        amount: couponDetail?.amount || cashbackAmounts[purchaseWithCoupon.id] || "0", // Use the coupon amount or cashback amount
+        createdAt: couponDetail?.createdAt || new Date().toISOString()
       };
-    }));
+    });
     
     setAllCoupons(enhancedData);
   }
