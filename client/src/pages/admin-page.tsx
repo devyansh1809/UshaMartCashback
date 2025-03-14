@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]);
   const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
   const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
+  const [searchQuery, setSearchQuery] = useState(''); // Added search state
 
 
   const { data: users, isLoading: loadingUsers } = useQuery({
@@ -179,7 +180,7 @@ export default function AdminPage() {
     // Filter active vs redeemed coupons
     const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0" && parseInt(c.amount) > 0);
     const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0" || parseInt(c.amount) === 0);
-    
+
     setAllCoupons(active);
     setRedeemedCoupons(redeemed);
   }
@@ -257,16 +258,16 @@ export default function AdminPage() {
             <TabsContent value="purchases">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div>
-                      Customer Purchases
-                      {pendingCount > 0 && (
-                        <Badge variant="outline" className="ml-2 bg-yellow-50 text-yellow-800">
-                          {pendingCount} pending
-                        </Badge>
-                      )}
-                    </div>
-                  </CardTitle>
+                  <CardTitle>Customer Purchases</CardTitle>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      placeholder="Search by bill number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loadingPurchases ? (
@@ -286,7 +287,7 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {purchases?.map((purchase) => {
+                        {purchases?.filter(purchase => !searchQuery || purchase.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((purchase) => { // Added search filter
                           const user = users?.find((u) => u.id === purchase.userId);
                           const isPending =
                             purchase.verificationStatus === "pending";
@@ -385,21 +386,20 @@ export default function AdminPage() {
             <TabsContent value="vouchers">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div>All Voucher Codes</div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => refetchCoupons()}
-                      className="flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-4 w-4" /> Refresh
-                    </Button>
-                  </CardTitle>
+                  <CardTitle>Voucher Codes</CardTitle>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      placeholder="Search by bill number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allCoupons?.map((coupon) => {
+                    {allCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => { // Added search filter
                       const purchase = purchases?.find(p => p.id === coupon.purchaseId);
                       const user = users?.find(u => u.id === purchase?.userId);
 
@@ -475,21 +475,20 @@ export default function AdminPage() {
             <TabsContent value="redeemed">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div>Redeemed Coupons</div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => refetchCoupons()}
-                      className="flex items-center gap-1"
-                    >
-                      <RefreshCw className="h-4 w-4" /> Refresh
-                    </Button>
-                  </CardTitle>
+                  <CardTitle>Redeemed Coupons</CardTitle>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      placeholder="Search by bill number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {redeemedCoupons?.map((coupon) => {
+                    {redeemedCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => { // Added search filter
                       const purchase = purchases?.find(p => p.id === coupon.purchaseId);
                       const user = users?.find(u => u.id === purchase?.userId);
 
