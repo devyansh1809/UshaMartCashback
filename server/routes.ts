@@ -175,8 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Mark the coupon as redeemed and update its status
-      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, coupon.amount);
-      redeemedCoupon.status = 'redeemed';
+      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, coupon.amount, 'redeemed');
       
       // Add notification for the user
       const user = storage.users.get(purchase.userId);

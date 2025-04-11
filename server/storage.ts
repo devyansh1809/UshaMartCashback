@@ -181,16 +181,17 @@ export class MemStorage implements IStorage {
     return coupon;
   }
 
-  async updateCashbackCouponAmount(couponId: number, newAmount: number): Promise<CashbackCoupon> {
+  async updateCashbackCouponAmount(couponId: number, newAmount: number, status?: 'active' | 'redeemed'): Promise<CashbackCoupon> {
     const coupon = this.coupons.get(couponId);
     if (!coupon) {
       throw new Error("Coupon not found");
     }
 
-    // Update only the amount, preserve the same coupon code
+    // Update amount and status if provided
     const updatedCoupon: CashbackCoupon = {
       ...coupon,
       amount: newAmount.toString(), // Convert to string for storage
+      status: status || coupon.status // Preserve existing status if not provided
     };
 
     this.coupons.set(couponId, updatedCoupon);
