@@ -398,58 +398,68 @@ export default function AdminPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Coupon Code</TableHead>
-                        <TableHead>Bill Number</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Purchase Amount</TableHead>
-                        <TableHead>Voucher Value</TableHead>
-                        <TableHead>Created Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => {
-                        const purchase = purchases?.find(p => p.id === coupon.purchaseId);
-                        const user = users?.find(u => u.id === purchase?.userId);
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => { // Added search filter
+                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                      const user = users?.find(u => u.id === purchase?.userId);
 
-                        return (
-                          <TableRow key={coupon.couponCode}>
-                            <TableCell className="font-mono font-medium text-primary">
-                              {coupon.couponCode}
-                            </TableCell>
-                            <TableCell>{coupon.billNumber}</TableCell>
-                            <TableCell>{user?.name}</TableCell>
-                            <TableCell>₹{purchase?.billAmount}</TableCell>
-                            <TableCell className="font-medium">₹{coupon.amount}</TableCell>
-                            <TableCell>{format(new Date(coupon.createdAt), "PPP")}</TableCell>
-                            <TableCell>
+                      return (
+                        <Card key={coupon.couponCode} className="border border-primary/10 bg-primary/5">
+                          <CardContent className="p-4">
+                            <div className="mb-2 text-center py-2 bg-primary/10 rounded">
+                              <span className="block font-mono text-lg font-bold text-primary">
+                                {coupon.couponCode}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Bill Number:</span>
+                                <span>{coupon.billNumber}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-primary">Voucher Value:</span>
+                                <span className="text-primary">₹{coupon.amount}</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 mt-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Bill Number:</span>
+                                <span>{purchase?.billNumber}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Customer:</span>
+                                <span>{user?.name}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">Purchase Amount:</span>
+                                <span>₹{purchase?.billAmount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-primary">Voucher Value:</span>
+                                <span className="text-primary">₹{coupon.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <span>Created:</span>
+                                <span>{format(new Date(coupon.createdAt), "PPP")}</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 pt-2 border-t">
                               <Button
                                 size="sm"
                                 onClick={() => redeemCouponMutation.mutate(coupon.purchaseId)}
                                 disabled={redeemCouponMutation.isPending}
-                                className="bg-primary hover:bg-primary/90"
+                                className="bg-primary hover:bg-primary/90 text-xs w-full"
                               >
                                 {redeemCouponMutation.isPending &&
                                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                 }
-                                Redeem
+                                Redeem Coupon
                               </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {!allCoupons?.length && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                            No voucher codes generated yet
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
 
@@ -477,50 +487,48 @@ export default function AdminPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Coupon Code</TableHead>
-                        <TableHead>Bill Number</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Purchase Amount</TableHead>
-                        <TableHead>Voucher Value</TableHead>
-                        <TableHead>Created Date</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {redeemedCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => {
-                        const purchase = purchases?.find(p => p.id === coupon.purchaseId);
-                        const user = users?.find(u => u.id === purchase?.userId);
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {redeemedCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => { // Added search filter
+                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                      const user = users?.find(u => u.id === purchase?.userId);
 
-                        return (
-                          <TableRow key={coupon.couponCode} className="bg-muted/10">
-                            <TableCell className="font-mono font-medium">
-                              {coupon.couponCode}
-                            </TableCell>
-                            <TableCell>{coupon.billNumber}</TableCell>
-                            <TableCell>{user?.name || "Unknown"}</TableCell>
-                            <TableCell>₹{purchase?.billAmount}</TableCell>
-                            <TableCell className="font-medium">₹{coupon.amount}</TableCell>
-                            <TableCell>{format(new Date(coupon.createdAt), "PPP")}</TableCell>
-                            <TableCell>
+                      return (
+                        <Card key={coupon.purchaseId} className="bg-muted/30 border-dashed">
+                          <CardContent className="pt-6">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-mono text-lg font-bold">
+                                  {coupon.couponCode}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Bill: {coupon.billNumber}
+                                </p>
+                              </div>
                               <Badge variant="outline" className="bg-rose-100 text-rose-600 border-rose-200">
                                 Redeemed
                               </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {!redeemedCoupons?.length && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                            No redeemed coupons yet
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                            </div>
+
+                            <div className="space-y-2 mt-4">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Amount:</span>
+                                <span className="font-medium">₹{coupon.amount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Bill Amount:</span>
+                                <span className="font-medium">₹{coupon.billAmount}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Customer:</span>
+                                <span className="font-medium">{user?.name || "Unknown"}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Generated:</span>
+                                <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
 
