@@ -174,10 +174,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Coupon not found" });
       }
       
-      // Set the coupon amount to 0 (redeem it)
-      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, 0);
-      
-      // Mark the coupon as redeemed in status
+      // Mark the coupon as redeemed and update its status
+      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, coupon.amount);
       redeemedCoupon.status = 'redeemed';
       
       // Add notification for the user
