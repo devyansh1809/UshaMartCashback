@@ -398,77 +398,58 @@ export default function AdminPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => { // Added search filter
-                      const purchase = purchases?.find(p => p.id === coupon.purchaseId);
-                      const user = users?.find(u => u.id === purchase?.userId);
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Voucher Code</TableHead>
+                        <TableHead>Bill Number</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Purchase Amount</TableHead>
+                        <TableHead>Voucher Value</TableHead>
+                        <TableHead>Created Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allCoupons?.filter(coupon => !searchQuery || coupon.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((coupon) => {
+                        const purchase = purchases?.find(p => p.id === coupon.purchaseId);
+                        const user = users?.find(u => u.id === purchase?.userId);
 
-                      return (
-                        <Card key={coupon.couponCode} className="border border-primary/10 bg-primary/5">
-                          <CardContent className="p-4">
-                            <div className="mb-2 text-center py-2 bg-primary/10 rounded">
-                              <span className="block font-mono text-lg font-bold text-primary">
-                                {coupon.couponCode}
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Bill Number:</span>
-                                <span>{coupon.billNumber}</span>
-                              </div>
-                              <div className="flex justify-between text-sm font-semibold">
-                                <span className="text-primary">Voucher Value:</span>
-                                <span className="text-primary">₹{coupon.amount}</span>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2 mt-3">
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Bill Number:</span>
-                                <span>{purchase?.billNumber}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Customer:</span>
-                                <span>{user?.name}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Purchase Amount:</span>
-                                <span>₹{purchase?.billAmount}</span>
-                              </div>
-                              <div className="flex justify-between text-sm font-semibold">
-                                <span className="text-primary">Voucher Value:</span>
-                                <span className="text-primary">₹{coupon.amount}</span>
-                              </div>
-                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                                <span>Created:</span>
-                                <span>{format(new Date(coupon.createdAt), "PPP")}</span>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 pt-2 border-t">
+                        return (
+                          <TableRow key={coupon.couponCode}>
+                            <TableCell className="font-mono font-medium text-primary">
+                              {coupon.couponCode}
+                            </TableCell>
+                            <TableCell>{coupon.billNumber}</TableCell>
+                            <TableCell>{user?.name}</TableCell>
+                            <TableCell>₹{purchase?.billAmount}</TableCell>
+                            <TableCell className="font-medium">₹{coupon.amount}</TableCell>
+                            <TableCell>{format(new Date(coupon.createdAt), "PPP")}</TableCell>
+                            <TableCell>
                               <Button
                                 size="sm"
                                 onClick={() => redeemCouponMutation.mutate(coupon.purchaseId)}
                                 disabled={redeemCouponMutation.isPending}
-                                className="bg-primary hover:bg-primary/90 text-xs w-full"
+                                className="bg-primary hover:bg-primary/90"
                               >
                                 {redeemCouponMutation.isPending &&
                                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                 }
-                                Redeem Coupon
+                                Redeem
                               </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-
-                    {!allCoupons?.length && (
-                      <div className="col-span-full text-center py-8 text-muted-foreground">
-                        No voucher codes generated yet
-                      </div>
-                    )}
-                  </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {!allCoupons?.length && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                            No voucher codes generated yet
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </TabsContent>
