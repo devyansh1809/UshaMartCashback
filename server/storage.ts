@@ -1,4 +1,4 @@
-import { users, purchases, cashbackCoupons, type User, type InsertUser, type Purchase, type InsertPurchase, type CashbackCoupon } from "@shared/schema";
+import { users, purchases, cashbackCoupons, type User, type InsertUser, type Purchase, type InsertPurchase, type CashbackCoupon, type Notification } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes } from "crypto";
@@ -36,24 +36,33 @@ export interface IStorage {
   getPurchaseById(purchaseId: number): Promise<Purchase | undefined>; // Added method
   createCashbackCoupon(purchaseId: number, amount: number): Promise<CashbackCoupon>;
   getCashbackCouponsByUser(userId: number): Promise<CashbackCoupon[]>;
+  
+  // Notification methods
+  createNotification(userId: number, message: string): Promise<Notification>;
+  getUserNotifications(userId: number): Promise<Notification[]>;
+  markNotificationAsRead(notificationId: number): Promise<Notification>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private purchases: Map<number, Purchase>;
   coupons: Map<number, CashbackCoupon>; // Changed to public for direct access
+  private notifications: Map<number, Notification>;
   currentId: number;
   currentPurchaseId: number;
   currentCouponId: number;
+  currentNotificationId: number;
   sessionStore: session.Store;
 
   constructor() {
     this.users = new Map();
     this.purchases = new Map();
     this.coupons = new Map();
+    this.notifications = new Map();
     this.currentId = 1;
     this.currentPurchaseId = 1;
     this.currentCouponId = 1;
+    this.currentNotificationId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // 24 hours
     });
@@ -209,6 +218,41 @@ export class MemStorage implements IStorage {
     return Array.from(this.coupons.values())
       .filter(coupon => verifiedPurchaseIds.includes(coupon.purchaseId))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort by newest first
+  }
+
+  async createNotification(userId: number, message: string): Promise<Notification> {
+    const id = this.currentNotificationId++;
+    const notification: Notification = {
+      id,
+      userId,
+      message,
+      isRead: false,
+      createdAt: new Date(),
+    };
+    
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async getUserNotifications(userId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(notification => notification.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Sort by newest first
+  }
+
+  async markNotificationAsRead(notificationId: number): Promise<Notification> {
+    const notification = this.notifications.get(notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    const updatedNotification: Notification = {
+      ...notification,
+      isRead: true,
+    };
+
+    this.notifications.set(notificationId, updatedNotification);
+    return updatedNotification;
   }
 }
 

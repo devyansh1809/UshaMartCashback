@@ -150,6 +150,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(coupons);
   });
 
+  // Notification endpoints
+  app.get("/api/notifications", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).send("Authentication required");
+    }
+
+    const notifications = await storage.getUserNotifications(req.user.id);
+    res.json(notifications);
+  });
+
+  app.post("/api/notifications/:id/read", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).send("Authentication required");
+    }
+
+    try {
+      const notificationId = parseInt(req.params.id);
+      const notification = await storage.markNotificationAsRead(notificationId);
+      res.json(notification);
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
   // Add endpoint to redeem a coupon
   app.post("/api/coupons/:purchaseId/redeem", async (req, res) => {
     if (!req.user?.isAdmin) {
@@ -175,15 +199,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Mark the coupon as redeemed and update its status
-      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, coupon.amount, 'redeemed');
+      const redeemedCoupon = await storage.updateCashbackCouponAmount(coupon.id, Number(coupon.amount), 'redeemed');
       
-      // Add notification for the user
-      const user = storage.users.get(purchase.userId);
-      if (user) {
-        // If you have a notifications system, you would add to it here
-        // For now, just ensure the status is updated
-        storage.coupons.set(coupon.id, redeemedCoupon);
-      }
+      // Create notification for the user
+      await storage.createNotification(
+        purchase.userId,
+        `Your cashback coupon ${coupon.couponCode} for ₹${coupon.amount} has been redeemed.`
+      );
       
       // Return the redeemed coupon with purchase info
       res.json({

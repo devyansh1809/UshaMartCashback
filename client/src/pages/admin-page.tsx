@@ -249,8 +249,9 @@ export default function AdminPage() {
           </div>
 
           <Tabs defaultValue="purchases" className="mt-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="purchases">Customer Purchases</TabsTrigger>
+              <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="vouchers">Voucher Codes</TabsTrigger>
               <TabsTrigger value="redeemed">Redeemed Coupons</TabsTrigger>
             </TabsList>
@@ -279,7 +280,6 @@ export default function AdminPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Bill #</TableHead>
-                          <TableHead>Customer</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Status</TableHead>
@@ -296,7 +296,6 @@ export default function AdminPage() {
                               <TableCell className="font-medium">
                                 {purchase.billNumber}
                               </TableCell>
-                              <TableCell>{user?.name}</TableCell>
                               <TableCell>₹{purchase.billAmount}</TableCell>
                               <TableCell>
                                 {format(new Date(purchase.purchaseDate), "PPP")}
@@ -371,8 +370,60 @@ export default function AdminPage() {
                         })}
                         {!purchases?.length && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-4">
+                            <TableCell colSpan={5} className="text-center py-4">
                               No purchases to verify
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="users">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Users</CardTitle>
+                  <CardDescription>Manage all registered users</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingUsers ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Username</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Role</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users?.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.name}</TableCell>
+                            <TableCell>{user.username}</TableCell>
+                            <TableCell>{user.phone}</TableCell>
+                            <TableCell>{user.address}</TableCell>
+                            <TableCell>
+                              {user.isAdmin ? (
+                                <Badge variant="default">Admin</Badge>
+                              ) : (
+                                <Badge variant="outline">User</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {!users?.length && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-4">
+                              No users found
                             </TableCell>
                           </TableRow>
                         )}
@@ -415,21 +466,6 @@ export default function AdminPage() {
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Bill Number:</span>
                                 <span>{coupon.billNumber}</span>
-                              </div>
-                              <div className="flex justify-between text-sm font-semibold">
-                                <span className="text-primary">Voucher Value:</span>
-                                <span className="text-primary">₹{coupon.amount}</span>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2 mt-3">
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Bill Number:</span>
-                                <span>{purchase?.billNumber}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="font-medium">Customer:</span>
-                                <span>{user?.name}</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Purchase Amount:</span>
@@ -519,10 +555,6 @@ export default function AdminPage() {
                                 <span className="font-medium">₹{coupon.billAmount}</span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Customer:</span>
-                                <span className="font-medium">{user?.name || "Unknown"}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Generated:</span>
                                 <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
                               </div>
@@ -542,41 +574,6 @@ export default function AdminPage() {
               </Card>
             </TabsContent>
           </Tabs>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-              <CardDescription>A list of all registered users.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingUsers ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Address</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users?.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.username}</TableCell>
-                        <TableCell>{user.name}</TableCell>
-                        <TableCell>{user.phone}</TableCell>
-                        <TableCell>{user.address}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </main>
     </div>

@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPurchaseSchema, type InsertPurchase } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,6 +65,20 @@ export default function HomePage() {
         const purchase = purchases?.find((p) => p.id === coupon.purchaseId);
         return purchase?.userId === user?.id;
       });
+    },
+  });
+
+  const { data: notifications } = useQuery({
+    queryKey: ["/api/notifications"],
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId: number) => {
+      const res = await apiRequest("POST", `/api/notifications/${notificationId}/read`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
   });
 
@@ -234,6 +248,48 @@ export default function HomePage() {
                   {!coupons?.length && (
                     <p className="text-muted-foreground text-center py-4">
                       No cashback coupons yet
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {notifications?.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border rounded ${
+                        notification.isRead ? "bg-muted/30" : "bg-blue-50"
+                      }`}
+                    >
+                      <p className="text-sm">{notification.message}</p>
+                      <div className="flex justify-between items-center mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(notification.createdAt), "PPP")}
+                        </p>
+                        {!notification.isRead && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => markAsReadMutation.mutate(notification.id)}
+                          >
+                            Mark as read
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {!notifications?.length && (
+                    <p className="text-muted-foreground text-center py-4">
+                      No notifications
                     </p>
                   )}
                 </div>

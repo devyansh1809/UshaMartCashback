@@ -31,6 +31,14 @@ export const cashbackCoupons = pgTable("cashback_coupons", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users)
   .pick({
     username: true,
@@ -61,3 +69,4 @@ export type User = typeof users.$inferSelect;
 export type Purchase = typeof purchases.$inferSelect;
 export type CashbackCoupon = typeof cashbackCoupons.$inferSelect;
 export type InsertPurchase = z.infer<typeof insertPurchaseSchema>;
+export type Notification = typeof notifications.$inferSelect;
