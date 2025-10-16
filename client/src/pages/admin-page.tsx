@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Users, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import { Loader2, Users, CheckCircle, Clock, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Redirect } from "wouter";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -35,6 +35,8 @@ export default function AdminPage() {
   const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
   const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
   const [searchQuery, setSearchQuery] = useState(''); // Added search state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
 
   const { data: users, isLoading: loadingUsers } = useQuery({
@@ -202,6 +204,21 @@ export default function AdminPage() {
   }
 
   const pendingCount = purchases?.filter(p => p.verificationStatus === "pending").length || 0;
+  
+  // Pagination logic
+  const filteredPurchases = purchases?.filter(purchase => 
+    !searchQuery || purchase.billNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+  
+  const totalPages = Math.ceil(filteredPurchases.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPurchases = filteredPurchases.slice(startIndex, endIndex);
+  
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -287,7 +304,7 @@ export default function AdminPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {purchases?.filter(purchase => !searchQuery || purchase.billNumber.toLowerCase().includes(searchQuery.toLowerCase())).map((purchase) => { // Added search filter
+                        {paginatedPurchases.map((purchase) => {
                           const user = users?.find((u) => u.id === purchase.userId);
                           const isPending =
                             purchase.verificationStatus === "pending";
@@ -368,15 +385,47 @@ export default function AdminPage() {
                             </TableRow>
                           );
                         })}
-                        {!purchases?.length && (
+                        {!paginatedPurchases.length && (
                           <TableRow>
                             <TableCell colSpan={5} className="text-center py-4">
-                              No purchases to verify
+                              {searchQuery ? 'No purchases match your search' : 'No purchases to verify'}
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
+                  )}
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {startIndex + 1} to {Math.min(endIndex, filteredPurchases.length)} of {filteredPurchases.length} purchases
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </Button>
+                        <span className="text-sm">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
