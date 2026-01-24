@@ -177,8 +177,8 @@ export default function AdminPage() {
     });
 
     // Filter active vs redeemed coupons
-    const active = enhancedData.filter(c => c.status !== 'redeemed' && c.amount !== "0" && parseInt(c.amount) > 0);
-    const redeemed = enhancedData.filter(c => c.status === 'redeemed' || c.amount === "0" || parseInt(c.amount) === 0);
+    const active = enhancedData.filter(c => c.status === 'active' && c.amount !== "0" && parseInt(c.amount) > 0);
+    const redeemed = enhancedData.filter(c => c.status === 'redeemed');
     
     setAllCoupons(active);
     setRedeemedCoupons(redeemed);
@@ -301,15 +301,23 @@ export default function AdminPage() {
                                 {format(new Date(purchase.purchaseDate), "PPP")}
                               </TableCell>
                               <TableCell>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded ${
-                                    isPending
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-green-100 text-green-800"
-                                  }`}
-                                >
-                                  {purchase.verificationStatus}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded w-fit ${
+                                      purchase.verificationStatus === "pending"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : coupons?.find(c => c.purchaseId === purchase.id)?.status === "redeemed"
+                                          ? "bg-rose-100 text-rose-800"
+                                          : "bg-green-100 text-green-800"
+                                    }`}
+                                  >
+                                    {purchase.verificationStatus === "pending" 
+                                      ? "Verification Pending" 
+                                      : coupons?.find(c => c.purchaseId === purchase.id)?.status === "redeemed"
+                                        ? "Redeemed Already"
+                                        : "Coupon Active"}
+                                  </span>
+                                </div>
                               </TableCell>
                               <TableCell>
                                 {isPending && (
