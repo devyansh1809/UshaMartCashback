@@ -210,6 +210,7 @@ export class MemStorage implements IStorage {
       redeemedAt: new Date(),
     };
 
+    // Persist the redeemed coupon in storage
     this.coupons.set(couponId, redeemedCoupon);
     return redeemedCoupon;
   }

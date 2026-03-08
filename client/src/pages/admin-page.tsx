@@ -99,17 +99,18 @@ export default function AdminPage() {
       const res = await apiRequest("POST", `/api/coupons/${purchaseId}/redeem`);
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/coupons"] });
+      
+      // Immediately refetch to ensure persisted state
+      await refetchCoupons();
+      
       toast({
         title: "Coupon redeemed",
         description: `Coupon for Bill #${data.billNumber} has been redeemed successfully.`,
       });
-
-      // Refetch coupons to update the displayed values
-      refetchCoupons();
     },
     onError: (error: Error) => {
       toast({
@@ -162,6 +163,9 @@ export default function AdminPage() {
       // Find this purchase in all purchases
       const purchase = purchases.find(p => p.id === purchaseWithCoupon.id);
 
+      // Find the customer who made the purchase (by userId from purchase)
+      const customer = users?.find(u => u.id === purchase?.userId);
+
       // Find the coupon for this purchase
       const couponDetail = Object.values(couponMap).find(c => c.purchaseId === purchaseWithCoupon.id);
 
@@ -174,7 +178,7 @@ export default function AdminPage() {
         createdAt: couponDetail?.createdAt || new Date().toISOString(),
         status: couponDetail?.status || 'active',
         redeemedAt: couponDetail?.redeemedAt,
-        customerName: user?.name || "Unknown"
+        customerName: customer?.name || "Unknown"
       };
     });
 
@@ -439,7 +443,7 @@ export default function AdminPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Customer:</span>
-                                <span className="text-right max-w-xs break-words">{coupon.customerName || user?.name}</span>
+                                <span className="text-right max-w-xs break-words">{coupon.customerName}</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Purchase Amount:</span>
@@ -537,7 +541,7 @@ export default function AdminPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Customer:</span>
-                                <span className="font-medium text-right max-w-xs break-words">{coupon.customerName || user?.name || "Unknown"}</span>
+                                <span className="font-medium text-right max-w-xs break-words">{coupon.customerName}</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Generated:</span>
