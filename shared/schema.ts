@@ -29,6 +29,7 @@ export const cashbackCoupons = pgTable("cashback_coupons", {
   amount: decimal("amount").notNull(),
   status: text("status").notNull().default('active'),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  redeemedAt: timestamp("redeemed_at"),
 });
 
 export const insertUserSchema = createInsertSchema(users)

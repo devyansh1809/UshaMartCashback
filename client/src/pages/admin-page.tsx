@@ -32,8 +32,8 @@ export default function AdminPage() {
   const { toast } = useToast();
   const [cashbackAmounts, setCashbackAmounts] = useState<Record<number, number>>({});
   const [coupons, setCoupons] = useState<Array<{ purchaseId: number; couponCode: string }>>([]);
-  const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
-  const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string }>>([]);
+  const [allCoupons, setAllCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string; status: string; redeemedAt?: string; customerName?: string }>>([]);
+  const [redeemedCoupons, setRedeemedCoupons] = useState<Array<{ purchaseId: number; couponCode: string; billNumber: string; billAmount: number; amount: number; createdAt: string; status: string; redeemedAt?: string; customerName?: string }>>([]);
 
 
   const { data: users, isLoading: loadingUsers } = useQuery({
@@ -170,9 +170,11 @@ export default function AdminPage() {
         couponCode: purchaseWithCoupon.couponCode,
         billNumber: purchaseWithCoupon.billNumber || purchase?.billNumber,
         billAmount: purchaseWithCoupon.billAmount || purchase?.billAmount,
-        amount: couponDetail?.amount || cashbackAmounts[purchaseWithCoupon.id] || "0", // Use the coupon amount or cashback amount
+        amount: couponDetail?.amount || cashbackAmounts[purchaseWithCoupon.id] || "0",
         createdAt: couponDetail?.createdAt || new Date().toISOString(),
-        status: couponDetail?.status || 'active'
+        status: couponDetail?.status || 'active',
+        redeemedAt: couponDetail?.redeemedAt,
+        customerName: user?.name || "Unknown"
       };
     });
 
@@ -437,7 +439,7 @@ export default function AdminPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Customer:</span>
-                                <span>{user?.name}</span>
+                                <span className="text-right max-w-xs break-words">{coupon.customerName || user?.name}</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="font-medium">Purchase Amount:</span>
@@ -448,9 +450,15 @@ export default function AdminPage() {
                                 <span className="text-primary">₹{coupon.amount}</span>
                               </div>
                               <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                                <span>Created:</span>
+                                <span>Generated:</span>
                                 <span>{format(new Date(coupon.createdAt), "PPP")}</span>
                               </div>
+                              {coupon.redeemedAt && (
+                                <div className="flex justify-between text-xs text-rose-600 mt-1 font-medium">
+                                  <span>Redeemed:</span>
+                                  <span>{format(new Date(coupon.redeemedAt), "PPP 'at' p")}</span>
+                                </div>
+                              )}
                             </div>
 
                             <div className="mt-4 pt-2 border-t">
@@ -529,12 +537,18 @@ export default function AdminPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Customer:</span>
-                                <span className="font-medium">{user?.name || "Unknown"}</span>
+                                <span className="font-medium text-right max-w-xs break-words">{coupon.customerName || user?.name || "Unknown"}</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Generated:</span>
                                 <span className="font-medium">{format(new Date(coupon.createdAt), "PP")}</span>
                               </div>
+                              {coupon.redeemedAt && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-rose-600 font-medium">Redeemed:</span>
+                                  <span className="text-rose-600 font-medium">{format(new Date(coupon.redeemedAt), "PP 'at' p")}</span>
+                                </div>
+                              )}
                               
                               {coupon.status === 'redeemed' ? (
                                 <Button 
@@ -547,7 +561,7 @@ export default function AdminPage() {
                               ) : (
                                 <Button 
                                   className="w-full mt-4" 
-                                  onClick={() => redeemCouponMutation.mutate({ purchaseId: coupon.purchaseId })}
+                                  onClick={() => redeemCouponMutation.mutate(coupon.purchaseId)}
                                   disabled={redeemCouponMutation.isPending}
                                 >
                                   {redeemCouponMutation.isPending ? (
